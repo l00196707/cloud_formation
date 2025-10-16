@@ -16,17 +16,17 @@ Parameters:
 Resources:
 
   LambdaExecutionRole:
-  Type: AWS::IAM::Role
-  Properties:
-    AssumeRolePolicyDocument:
-      Version: '2012-10-17'
-      Statement:
-        - Effect: Allow
-          Principal:
-            Service: lambda.amazonaws.com
-          Action: sts:AssumeRole
-    ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   SimpleRestAPI:
     Type: AWS::ApiGateway::RestApi
@@ -35,7 +35,7 @@ Resources:
       EndpointConfiguration:
         Types:
           - REGIONAL
-      Name: whats-my-ip-cf
+      Name: !Sub "${FunctionName}-api-${EnvironmentName}"
 
   ApiGatewayResource:
     Type: AWS::ApiGateway::Resource
@@ -50,7 +50,6 @@ Resources:
       HttpMethod: GET
       AuthorizationType: NONE
       Integration:
-        Credentials: !GetAtt ApiGatewayIamRole.Arn
         IntegrationHttpMethod: POST
         Type: AWS_PROXY
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations'
@@ -70,7 +69,7 @@ Resources:
       DeploymentId: !Ref ApiGatewayDeployment
       Description: REST API dev stage
       RestApiId: !Ref SimpleRestAPI
-      StageName: 'dev'
+      StageName: !Ref EnvironmentName
 
   ApiGatewayDeployment:
     Type: AWS::ApiGateway::Deployment
@@ -85,8 +84,15 @@ Resources:
       Code:
         ZipFile: |
           import json
+          import os
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
           def lambda_handler(event, context):
               ip_address = event['requestContext']['identity']['sourceIp']
+              logger.info(f"Request from IP: {ip_address}")
               return {
                   'body': json.dumps({"ip_address": ip_address}),
                   'headers': {
@@ -95,49 +101,14 @@ Resources:
                   'statusCode': 200
               }
 
-      Description: AWS Lambda function
-      FunctionName: 'get_ip'
+      Description: AWS Lambda function to get IP
+      FunctionName: !Sub "${FunctionName}-${EnvironmentName}"
       Handler: index.lambda_handler
       MemorySize: 256
       Role: !GetAtt LambdaIamRole.Arn
       Runtime: python3.9
       Timeout: 60
 
-  ApiGatewayIamRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: ''
-            Effect: 'Allow'
-            Principal:
-              Service:
-                - 'apigateway.amazonaws.com'
-            Action:
-              - 'sts:AssumeRole'
-      Path: '/'
-      Policies:
-        - PolicyName: LambdaAccessPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: 'Allow'
-                Action: 'lambda:*'
-                Resource: !GetAtt LambdaFunction.Arn
 
-  LambdaIamRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: 'Allow'
-            Principal:
-              Service:
-                - 'lambda.amazonaws.com'
-            Action:
-              - 'sts:AssumeRole'
-      Path: '/'
 
 
