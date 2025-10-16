@@ -105,7 +105,7 @@ Resources:
       FunctionName: !Sub "${FunctionName}-${EnvironmentName}"
       Handler: index.lambda_handler
       MemorySize: 256
-      Role: !GetAtt LambdaIamRole.Arn
+      Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: python3.9
       Timeout: 60
 
