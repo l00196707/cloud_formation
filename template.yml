@@ -91,7 +91,11 @@ Resources:
           logger.setLevel(logging.INFO)
 
           def lambda_handler(event, context):
-              ip_address = event['requestContext']['identity']['sourceIp']
+              ip_address = (
+                event.get('requestContext',{})
+                .get('identity',{})
+                .get('sourceIp','unknown')   
+              )
               logger.info(f"Request from IP: {ip_address}")
               return {
                   'body': json.dumps({"ip_address": ip_address}),
@@ -108,6 +112,13 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: python3.9
       Timeout: 60
+  
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaFunction
+      Principal: apigateway.amazonaws.com
 
 
 
